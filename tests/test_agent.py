@@ -1,7 +1,8 @@
 """Tests for Agent communication."""
 
 import pytest
-from debate_ai.agent import Agent
+from datetime import datetime
+from debate_ai.agent import Agent, AgentResponse
 from debate_ai.llm_provider import MockLLMProvider
 
 
@@ -32,3 +33,19 @@ class TestAgentCommunication:
 
         assert response == "Mock response from LLM"
         assert mock_provider.last_prompt == prompt
+
+    async def test_agent_response_includes_metadata(self) -> None:
+        """Test that agent response includes metadata (agent_id, timestamp)."""
+        mock_provider = MockLLMProvider(response="Test response")
+        agent = Agent(agent_id="test-agent-123", role="critic", llm_provider=mock_provider)
+
+        before_time = datetime.now()
+        response = await agent.process_with_metadata("Test prompt")
+        after_time = datetime.now()
+
+        assert isinstance(response, AgentResponse)
+        assert response.agent_id == "test-agent-123"
+        assert response.role == "critic"
+        assert response.content == "Test response"
+        assert response.timestamp >= before_time
+        assert response.timestamp <= after_time

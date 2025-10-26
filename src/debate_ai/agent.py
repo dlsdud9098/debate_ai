@@ -1,7 +1,18 @@
 """Agent implementation for debate system."""
 
+from datetime import datetime
 from typing import Optional
+from pydantic import BaseModel
 from debate_ai.llm_provider import LLMProvider
+
+
+class AgentResponse(BaseModel):
+    """Response from an agent including metadata."""
+
+    agent_id: str
+    role: str
+    content: str
+    timestamp: datetime
 
 
 class Agent:
@@ -35,3 +46,20 @@ class Agent:
 
         # Fallback for backward compatibility
         return f"Agent {self.agent_id} ({self.role}) received: {prompt}"
+
+    async def process_with_metadata(self, prompt: str) -> AgentResponse:
+        """Process a prompt and return a response with metadata.
+
+        Args:
+            prompt: The prompt to process
+
+        Returns:
+            AgentResponse with content and metadata
+        """
+        content = await self.process(prompt)
+        return AgentResponse(
+            agent_id=self.agent_id,
+            role=self.role,
+            content=content,
+            timestamp=datetime.now(),
+        )
