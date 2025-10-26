@@ -6,7 +6,7 @@
 - [x] Test: MCP server can register tools
 
 ## Phase 2: Single Agent Communication
-- [ ] Test: Agent can receive a prompt and return a response
+- [x] Test: Agent can receive a prompt and return a response
 - [ ] Test: Agent can use different LLM providers (via SDK)
 - [ ] Test: Agent response includes metadata (agent_id, timestamp)
 
