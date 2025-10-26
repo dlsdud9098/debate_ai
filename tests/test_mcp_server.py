@@ -12,3 +12,10 @@ class TestMCPServerInitialization:
         server = DebateServer()
         assert server is not None
         assert isinstance(server, DebateServer)
+
+    async def test_server_responds_to_ping(self) -> None:
+        """Test that MCP server responds to health check."""
+        server = DebateServer()
+        response = await server.ping()
+        assert response is not None
+        assert response == "pong"

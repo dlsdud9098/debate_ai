@@ -9,3 +9,7 @@ class DebateServer:
     def __init__(self) -> None:
         """Initialize the debate server."""
         self.mcp_server = Server("debate-ai")
+
+    async def ping(self) -> str:
+        """Health check endpoint."""
+        return "pong"
