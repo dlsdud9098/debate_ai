@@ -7,7 +7,7 @@
 
 ## Phase 2: Single Agent Communication
 - [x] Test: Agent can receive a prompt and return a response
-- [ ] Test: Agent can use different LLM providers (via SDK)
+- [x] Test: Agent can use different LLM providers (via SDK)
 - [ ] Test: Agent response includes metadata (agent_id, timestamp)
 
 ## Phase 3: Multi-Agent Debate Structure
