@@ -19,3 +19,18 @@ class TestMCPServerInitialization:
         response = await server.ping()
         assert response is not None
         assert response == "pong"
+
+    def test_server_can_register_tools(self) -> None:
+        """Test that MCP server can register tools."""
+        server = DebateServer()
+
+        # Register a simple tool
+        @server.tool()
+        def sample_tool(text: str) -> str:
+            """A sample tool for testing."""
+            return f"processed: {text}"
+
+        # Verify tool is registered
+        tools = server.list_tools()
+        assert len(tools) == 1
+        assert tools[0]["name"] == "sample_tool"

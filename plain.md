@@ -3,7 +3,7 @@
 ## Phase 1: Basic MCP Server Setup
 - [x] Test: MCP server can be initialized
 - [x] Test: MCP server responds to ping/health check
-- [ ] Test: MCP server can register tools
+- [x] Test: MCP server can register tools
 
 ## Phase 2: Single Agent Communication
 - [ ] Test: Agent can receive a prompt and return a response
