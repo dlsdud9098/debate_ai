@@ -24,10 +24,10 @@
 - [x] Test: System has maximum iteration limit to prevent infinite loops
 
 ## Phase 5: MCP Tool Integration
-- [ ] Test: Expose debate_on_topic as MCP tool
-- [ ] Test: Tool accepts topic/question as parameter
-- [ ] Test: Tool returns final consensus result
-- [ ] Test: Tool provides debate history/transcript
+- [x] Test: Expose debate_on_topic as MCP tool
+- [x] Test: Tool accepts topic/question as parameter
+- [x] Test: Tool returns final consensus result
+- [x] Test: Tool provides debate history/transcript
 
 ## Phase 6: Agent Configuration
 - [ ] Test: Agents can have different personas/roles (critic, supporter, analyst)
