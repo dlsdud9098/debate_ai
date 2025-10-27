@@ -1,0 +1,116 @@
+"""LangGraph-based debate system for multi-agent communication."""
+
+from typing import List, Optional, TypedDict, Annotated
+import operator
+from langgraph.graph import StateGraph, END
+from debate_ai.agent import Agent, AgentResponse
+
+
+class DebateState(TypedDict):
+    """State for the debate graph."""
+
+    topic: str
+    responses: Annotated[List[AgentResponse], operator.add]
+    round_number: int
+    consensus_reached: bool
+
+
+class DebateResult:
+    """Result of a debate session."""
+
+    def __init__(self, state: DebateState) -> None:
+        """Initialize debate result from state."""
+        self.topic = state["topic"]
+        self.responses = state["responses"]
+        self.round_number = state["round_number"]
+        self.consensus_reached = state["consensus_reached"]
+
+
+class DebateGraph:
+    """LangGraph-based multi-agent debate system."""
+
+    def __init__(self, agents: List[Agent]) -> None:
+        """Initialize the debate graph.
+
+        Args:
+            agents: List of agents to participate in the debate
+        """
+        self.agents = agents
+        self.graph = self._build_graph()
+
+    def _build_graph(self) -> StateGraph:
+        """Build the LangGraph workflow."""
+        workflow = StateGraph(DebateState)
+
+        # Add a node for each agent
+        for i, agent in enumerate(self.agents):
+            node_name = f"agent_{i}"
+            workflow.add_node(node_name, self._create_agent_node(agent))
+
+        # Set entry point to first agent
+        if self.agents:
+            workflow.set_entry_point("agent_0")
+
+        # Connect agents in sequence
+        for i in range(len(self.agents) - 1):
+            workflow.add_edge(f"agent_{i}", f"agent_{i+1}")
+
+        # Last agent goes to END
+        if self.agents:
+            workflow.add_edge(f"agent_{len(self.agents)-1}", END)
+
+        return workflow.compile()
+
+    def _create_agent_node(self, agent: Agent):
+        """Create a node function for an agent.
+
+        Args:
+            agent: The agent for this node
+
+        Returns:
+            Async function that processes the agent's turn
+        """
+
+        async def agent_node(state: DebateState) -> dict:
+            """Process one agent's turn in the debate."""
+            # Build prompt with context from previous responses
+            if state["responses"]:
+                context = "\n".join(
+                    [
+                        f"{resp.agent_id} ({resp.role}): {resp.content}"
+                        for resp in state["responses"]
+                    ]
+                )
+                prompt = f"Topic: {state['topic']}\n\nPrevious responses:\n{context}\n\nYour response:"
+            else:
+                prompt = f"Topic: {state['topic']}\n\nProvide your initial response:"
+
+            # Get agent's response
+            response = await agent.process_with_metadata(prompt)
+
+            # Return updated state
+            return {"responses": [response]}
+
+        return agent_node
+
+    async def run(
+        self, topic: str, max_rounds: int = 1
+    ) -> DebateResult:
+        """Run the debate on a given topic.
+
+        Args:
+            topic: The topic to debate
+            max_rounds: Maximum number of debate rounds (not yet implemented)
+
+        Returns:
+            DebateResult containing all responses and metadata
+        """
+        initial_state: DebateState = {
+            "topic": topic,
+            "responses": [],
+            "round_number": 0,
+            "consensus_reached": False,
+        }
+
+        final_state = await self.graph.ainvoke(initial_state)
+        return DebateResult(final_state)
