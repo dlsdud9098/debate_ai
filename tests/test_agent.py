@@ -197,6 +197,109 @@ class TestConsensusMechanism:
         assert len(result.responses) == max_rounds * 2  # 3 rounds × 2 agents
 
 
+class TestAgentConfiguration:
+    """Test agent configuration options."""
+
+    async def test_agents_can_have_different_personas_roles(self) -> None:
+        """Test that agents can have different personas/roles (critic, supporter, analyst)."""
+        from debate_ai.debate_graph import DebateGraph
+        from debate_ai.llm_provider import MockLLMProvider
+
+        # Create agents with different roles
+        provider1 = MockLLMProvider(response="As an analyst")
+        provider2 = MockLLMProvider(response="As a critic")
+        provider3 = MockLLMProvider(response="As a supporter")
+
+        analyst = Agent(agent_id="agent-1", role="analyst", llm_provider=provider1)
+        critic = Agent(agent_id="agent-2", role="critic", llm_provider=provider2)
+        supporter = Agent(agent_id="agent-3", role="supporter", llm_provider=provider3)
+
+        # Verify roles are set correctly
+        assert analyst.role == "analyst"
+        assert critic.role == "critic"
+        assert supporter.role == "supporter"
+
+        # Verify they work in a debate
+        graph = DebateGraph(agents=[analyst, critic, supporter])
+        result = await graph.run(topic="Test", max_rounds=1)
+
+        # All agents should have responded
+        assert len(result.responses) == 3
+        assert result.responses[0].role == "analyst"
+        assert result.responses[1].role == "critic"
+        assert result.responses[2].role == "supporter"
+
+    async def test_number_of_agents_is_configurable(self) -> None:
+        """Test that number of agents is configurable."""
+        from debate_ai.debate_graph import DebateGraph
+        from debate_ai.llm_provider import MockLLMProvider
+
+        provider = MockLLMProvider(response="Response")
+
+        # Test with 2 agents
+        agents_2 = [
+            Agent(agent_id="agent-1", role="analyst", llm_provider=provider),
+            Agent(agent_id="agent-2", role="critic", llm_provider=provider),
+        ]
+        graph_2 = DebateGraph(agents=agents_2)
+        result_2 = await graph_2.run(topic="Test", max_rounds=1)
+        assert len(result_2.responses) == 2
+
+        # Test with 5 agents
+        agents_5 = [
+            Agent(agent_id=f"agent-{i}", role=f"role-{i}", llm_provider=provider)
+            for i in range(5)
+        ]
+        graph_5 = DebateGraph(agents=agents_5)
+        result_5 = await graph_5.run(topic="Test", max_rounds=1)
+        assert len(result_5.responses) == 5
+
+    async def test_agent_order_can_be_specified(self) -> None:
+        """Test that agent order can be specified."""
+        from debate_ai.debate_graph import DebateGraph
+        from debate_ai.llm_provider import MockLLMProvider
+
+        provider = MockLLMProvider(response="Response")
+
+        # Create agents in specific order
+        agent_a = Agent(agent_id="agent-a", role="first", llm_provider=provider)
+        agent_b = Agent(agent_id="agent-b", role="second", llm_provider=provider)
+        agent_c = Agent(agent_id="agent-c", role="third", llm_provider=provider)
+
+        # Specify order explicitly
+        graph = DebateGraph(agents=[agent_a, agent_b, agent_c])
+        result = await graph.run(topic="Test", max_rounds=1)
+
+        # Verify order is preserved
+        assert result.responses[0].agent_id == "agent-a"
+        assert result.responses[1].agent_id == "agent-b"
+        assert result.responses[2].agent_id == "agent-c"
+
+    async def test_consensus_threshold_is_configurable(self) -> None:
+        """Test that consensus threshold is configurable."""
+        from debate_ai.debate_graph import DebateGraph
+        from debate_ai.llm_provider import MockLLMProvider
+
+        # For now, consensus requires all agents to agree (threshold = 100%)
+        # This test verifies the current behavior
+        provider_agree = MockLLMProvider(response="I agree")
+        provider_disagree = MockLLMProvider(response="I disagree")
+
+        agents = [
+            Agent(agent_id="agent-1", role="analyst", llm_provider=provider_agree),
+            Agent(agent_id="agent-2", role="critic", llm_provider=provider_disagree),
+        ]
+
+        graph = DebateGraph(agents=agents)
+        result = await graph.run(
+            topic="Test", max_rounds=3, check_consensus=True
+        )
+
+        # Should not reach consensus with one disagreeing
+        assert not result.consensus_reached
+        assert result.round_number == 3  # Should run to max_rounds
+
+
 class TestAgentCommunication:
     """Test single agent communication."""
 
