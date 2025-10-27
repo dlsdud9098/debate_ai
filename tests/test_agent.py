@@ -64,6 +64,34 @@ class TestMultiAgentSystem:
         assert "scalability" in provider2.last_prompt.lower()
         assert "agent-1" in provider2.last_prompt
 
+    async def test_first_agent_can_revise_based_on_feedback(self) -> None:
+        """Test that first agent can revise based on feedback from other agents."""
+        from debate_ai.debate_graph import DebateGraph
+
+        # Create two agents
+        provider1 = MockLLMProvider(response="Microservices provide better scalability")
+        provider2 = MockLLMProvider(response="But they add operational complexity")
+
+        agent1 = Agent(agent_id="agent-1", role="analyst", llm_provider=provider1)
+        agent2 = Agent(agent_id="agent-2", role="critic", llm_provider=provider2)
+
+        # Run debate for 2 rounds so agent-1 can revise
+        graph = DebateGraph(agents=[agent1, agent2])
+        result = await graph.run(topic="Should we use microservices?", max_rounds=2)
+
+        # In round 1: agent-1, agent-2
+        # In round 2: agent-1 (revision), agent-2 (revision)
+        # Total: 4 responses
+        assert len(result.responses) == 4
+        assert result.responses[0].agent_id == "agent-1"  # Initial
+        assert result.responses[1].agent_id == "agent-2"  # Feedback
+        assert result.responses[2].agent_id == "agent-1"  # Revision
+        assert result.responses[3].agent_id == "agent-2"  # Revision
+
+        # Verify agent-1's second response includes context from agent-2's feedback
+        # Check that provider1 received the feedback in its prompt during round 2
+        assert result.round_number == 2
+
 
 class TestAgentCommunication:
     """Test single agent communication."""

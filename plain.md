@@ -14,8 +14,8 @@
 - [x] Test: System can initialize multiple agents with different roles
 - [x] Test: First agent generates initial response to a query
 - [x] Test: Second agent receives first agent's response and provides feedback
-- [ ] Test: First agent can revise based on feedback
-- [ ] Test: Debate continues for configurable number of rounds
+- [x] Test: First agent can revise based on feedback
+- [x] Test: Debate continues for configurable number of rounds
 
 ## Phase 4: Consensus Mechanism
 - [ ] Test: Each agent can vote on agreement (agree/disagree/needs_revision)

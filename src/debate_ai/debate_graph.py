@@ -45,7 +45,10 @@ class DebateGraph:
         # Add a node for each agent
         for i, agent in enumerate(self.agents):
             node_name = f"agent_{i}"
-            workflow.add_node(node_name, self._create_agent_node(agent))
+            workflow.add_node(node_name, self._create_agent_node(agent, i))
+
+        # Add a round controller node
+        workflow.add_node("round_controller", self._round_controller_node)
 
         # Set entry point to first agent
         if self.agents:
@@ -55,17 +58,28 @@ class DebateGraph:
         for i in range(len(self.agents) - 1):
             workflow.add_edge(f"agent_{i}", f"agent_{i+1}")
 
-        # Last agent goes to END
+        # Last agent goes to round controller
         if self.agents:
-            workflow.add_edge(f"agent_{len(self.agents)-1}", END)
+            workflow.add_edge(f"agent_{len(self.agents)-1}", "round_controller")
+
+        # Round controller decides: continue to agent_0 or END
+        workflow.add_conditional_edges(
+            "round_controller",
+            self._should_continue,
+            {
+                "continue": "agent_0",
+                "end": END,
+            },
+        )
 
         return workflow.compile()
 
-    def _create_agent_node(self, agent: Agent):
+    def _create_agent_node(self, agent: Agent, agent_index: int):
         """Create a node function for an agent.
 
         Args:
             agent: The agent for this node
+            agent_index: Index of this agent in the agent list
 
         Returns:
             Async function that processes the agent's turn
@@ -93,6 +107,38 @@ class DebateGraph:
 
         return agent_node
 
+    async def _round_controller_node(self, state: DebateState) -> dict:
+        """Control round progression.
+
+        Args:
+            state: Current debate state
+
+        Returns:
+            Updated state with incremented round number
+        """
+        return {"round_number": state["round_number"] + 1}
+
+    def _should_continue(self, state: DebateState) -> str:
+        """Decide whether to continue the debate or end.
+
+        Args:
+            state: Current debate state
+
+        Returns:
+            "continue" if more rounds needed, "end" otherwise
+        """
+        # Check if consensus is reached
+        if state["consensus_reached"]:
+            return "end"
+
+        # Check if we've reached max_rounds
+        # round_number increments after each full round
+        # So if round_number < max_rounds, continue
+        if hasattr(self, "_max_rounds") and state["round_number"] < self._max_rounds:
+            return "continue"
+
+        return "end"
+
     async def run(
         self, topic: str, max_rounds: int = 1
     ) -> DebateResult:
@@ -100,11 +146,14 @@ class DebateGraph:
 
         Args:
             topic: The topic to debate
-            max_rounds: Maximum number of debate rounds (not yet implemented)
+            max_rounds: Maximum number of debate rounds
 
         Returns:
             DebateResult containing all responses and metadata
         """
+        # Store max_rounds for use in _should_continue
+        self._max_rounds = max_rounds
+
         initial_state: DebateState = {
             "topic": topic,
             "responses": [],
