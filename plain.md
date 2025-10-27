@@ -30,10 +30,10 @@
 - [x] Test: Tool provides debate history/transcript
 
 ## Phase 6: Agent Configuration
-- [ ] Test: Agents can have different personas/roles (critic, supporter, analyst)
-- [ ] Test: Number of agents is configurable
-- [ ] Test: Agent order can be specified
-- [ ] Test: Consensus threshold is configurable
+- [x] Test: Agents can have different personas/roles (critic, supporter, analyst)
+- [x] Test: Number of agents is configurable
+- [x] Test: Agent order can be specified
+- [x] Test: Consensus threshold is configurable
 
 ## Phase 7: Error Handling
 - [ ] Test: Handle LLM API failures gracefully
