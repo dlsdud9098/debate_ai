@@ -3,7 +3,7 @@
 import pytest
 from datetime import datetime
 from debate_ai.agent import Agent, AgentResponse
-from debate_ai.llm_provider import MockLLMProvider
+from debate_ai.llm_provider import MockLLMProvider, FailingLLMProvider
 
 
 class TestMultiAgentSystem:
@@ -343,3 +343,111 @@ class TestAgentCommunication:
         assert response.content == "Test response"
         assert response.timestamp >= before_time
         assert response.timestamp <= after_time
+
+
+class TestErrorHandling:
+    """Test error handling in the debate system."""
+
+    async def test_handle_llm_api_failures_gracefully(self) -> None:
+        """Test that LLM API failures are handled gracefully."""
+        from debate_ai.debate_graph import DebateGraph
+
+        # Create agents where one has a failing provider
+        normal_provider = MockLLMProvider(response="Normal response")
+        failing_provider = FailingLLMProvider(error_message="API rate limit exceeded")
+
+        agent1 = Agent(agent_id="agent-1", role="analyst", llm_provider=normal_provider)
+        agent2 = Agent(agent_id="agent-2", role="critic", llm_provider=failing_provider)
+
+        graph = DebateGraph(agents=[agent1, agent2])
+
+        # Should complete without crashing, but include error in response
+        result = await graph.run(topic="Test topic", max_rounds=1)
+
+        # Verify we got responses from both agents
+        assert len(result.responses) == 2
+
+        # First agent should have normal response
+        assert result.responses[0].agent_id == "agent-1"
+        assert result.responses[0].content == "Normal response"
+
+        # Second agent should have error response
+        assert result.responses[1].agent_id == "agent-2"
+        assert "[Error:" in result.responses[1].content
+        assert "API rate limit exceeded" in result.responses[1].content
+
+    async def test_handle_timeout_scenarios(self) -> None:
+        """Test that timeout scenarios are handled."""
+        import asyncio
+        from debate_ai.debate_graph import DebateGraph
+        from debate_ai.llm_provider import LLMProvider
+
+        # Create a slow provider that times out
+        class SlowLLMProvider(LLMProvider):
+            """LLM provider that takes too long to respond."""
+
+            async def generate(self, prompt: str) -> str:
+                """Generate response slowly."""
+                await asyncio.sleep(5)  # Sleep for 5 seconds
+                return "Slow response"
+
+        slow_provider = SlowLLMProvider()
+        agent = Agent(agent_id="slow-agent", role="analyst", llm_provider=slow_provider)
+
+        graph = DebateGraph(agents=[agent])
+
+        # Should timeout after 1 second
+        with pytest.raises(asyncio.TimeoutError):
+            await asyncio.wait_for(
+                graph.run(topic="Test topic", max_rounds=1), timeout=1.0
+            )
+
+    async def test_handle_cases_where_consensus_cannot_be_reached(self) -> None:
+        """Test handling when consensus cannot be reached within max rounds."""
+        from debate_ai.debate_graph import DebateGraph
+
+        # Create agents that will never agree
+        provider1 = MockLLMProvider(response="I strongly disagree")
+        provider2 = MockLLMProvider(response="I also disagree")
+
+        agent1 = Agent(agent_id="agent-1", role="analyst", llm_provider=provider1)
+        agent2 = Agent(agent_id="agent-2", role="critic", llm_provider=provider2)
+
+        graph = DebateGraph(agents=[agent1, agent2])
+        result = await graph.run(
+            topic="Test topic", max_rounds=2, check_consensus=True
+        )
+
+        # Should complete without error even though no consensus
+        assert result is not None
+        assert not result.consensus_reached
+        assert result.round_number == 2  # Should reach max_rounds
+        assert len(result.responses) == 4  # 2 agents × 2 rounds
+
+    async def test_validate_input_parameters(self) -> None:
+        """Test that input parameters are validated."""
+        from debate_ai.debate_graph import DebateGraph
+
+        provider = MockLLMProvider(response="Test")
+        agent = Agent(agent_id="agent-1", role="analyst", llm_provider=provider)
+
+        graph = DebateGraph(agents=[agent])
+
+        # Test with empty topic should work but produce result
+        result = await graph.run(topic="", max_rounds=1)
+        assert result is not None
+        assert result.topic == ""
+
+        # Test with max_rounds=0 - should still run once then end
+        result2 = await graph.run(topic="Test", max_rounds=0)
+        assert result2 is not None
+        # With max_rounds=0, round_controller increments to 1 then ends
+        assert result2.round_number == 1
+        assert len(result2.responses) == 1  # Should have run once
+
+        # Test with normal max_rounds
+        result3 = await graph.run(topic="Test", max_rounds=5)
+        assert result3 is not None
+        # Should complete in 5 rounds since we don't check consensus
+        assert result3.round_number == 5
+        assert len(result3.responses) == 5

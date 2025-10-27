@@ -99,11 +99,21 @@ class DebateGraph:
             else:
                 prompt = f"Topic: {state['topic']}\n\nProvide your initial response:"
 
-            # Get agent's response
-            response = await agent.process_with_metadata(prompt)
+            # Get agent's response with error handling
+            try:
+                response = await agent.process_with_metadata(prompt)
+                return {"responses": [response]}
+            except Exception as e:
+                # Create error response instead of crashing
+                from datetime import datetime
 
-            # Return updated state
-            return {"responses": [response]}
+                error_response = AgentResponse(
+                    agent_id=agent.agent_id,
+                    role=agent.role,
+                    content=f"[Error: {str(e)}]",
+                    timestamp=datetime.now(),
+                )
+                return {"responses": [error_response]}
 
         return agent_node
 

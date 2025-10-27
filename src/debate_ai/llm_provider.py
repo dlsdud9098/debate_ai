@@ -43,3 +43,26 @@ class MockLLMProvider(LLMProvider):
         """
         self.last_prompt = prompt
         return self.response
+
+
+class FailingLLMProvider(LLMProvider):
+    """Mock LLM provider that always fails."""
+
+    def __init__(self, error_message: str = "LLM API error") -> None:
+        """Initialize the failing provider.
+
+        Args:
+            error_message: The error message to raise
+        """
+        self.error_message = error_message
+
+    async def generate(self, prompt: str) -> str:
+        """Generate a response (always fails).
+
+        Args:
+            prompt: The prompt to send to the LLM
+
+        Raises:
+            Exception: Always raises an exception
+        """
+        raise Exception(self.error_message)
