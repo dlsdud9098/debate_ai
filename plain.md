@@ -11,9 +11,9 @@
 - [x] Test: Agent response includes metadata (agent_id, timestamp)
 
 ## Phase 3: Multi-Agent Debate Structure
-- [ ] Test: System can initialize multiple agents with different roles
-- [ ] Test: First agent generates initial response to a query
-- [ ] Test: Second agent receives first agent's response and provides feedback
+- [x] Test: System can initialize multiple agents with different roles
+- [x] Test: First agent generates initial response to a query
+- [x] Test: Second agent receives first agent's response and provides feedback
 - [ ] Test: First agent can revise based on feedback
 - [ ] Test: Debate continues for configurable number of rounds
 

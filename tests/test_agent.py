@@ -6,6 +6,65 @@ from debate_ai.agent import Agent, AgentResponse
 from debate_ai.llm_provider import MockLLMProvider
 
 
+class TestMultiAgentSystem:
+    """Test multi-agent debate system."""
+
+    async def test_system_can_initialize_multiple_agents_with_different_roles(self) -> None:
+        """Test that system can initialize multiple agents with different roles."""
+        agents = [
+            Agent(agent_id="agent-1", role="analyst"),
+            Agent(agent_id="agent-2", role="critic"),
+            Agent(agent_id="agent-3", role="supporter"),
+        ]
+
+        assert len(agents) == 3
+        assert agents[0].role == "analyst"
+        assert agents[1].role == "critic"
+        assert agents[2].role == "supporter"
+        assert agents[0].agent_id == "agent-1"
+        assert agents[1].agent_id == "agent-2"
+        assert agents[2].agent_id == "agent-3"
+
+    async def test_first_agent_generates_initial_response_to_query(self) -> None:
+        """Test that first agent generates initial response to a query."""
+        from debate_ai.debate_graph import DebateGraph
+
+        # Create a debate graph with one agent
+        mock_provider = MockLLMProvider(response="I believe microservices provide better scalability")
+        agent = Agent(agent_id="agent-1", role="analyst", llm_provider=mock_provider)
+
+        graph = DebateGraph(agents=[agent])
+        result = await graph.run(topic="Should we use microservices?")
+
+        assert result is not None
+        assert len(result.responses) == 1
+        assert result.responses[0].agent_id == "agent-1"
+        assert "microservices" in result.responses[0].content.lower()
+
+    async def test_second_agent_receives_first_response_and_provides_feedback(self) -> None:
+        """Test that second agent receives first agent's response and provides feedback."""
+        from debate_ai.debate_graph import DebateGraph
+
+        # Create two agents with different perspectives
+        provider1 = MockLLMProvider(response="Microservices provide better scalability")
+        provider2 = MockLLMProvider(response="But they add operational complexity")
+
+        agent1 = Agent(agent_id="agent-1", role="analyst", llm_provider=provider1)
+        agent2 = Agent(agent_id="agent-2", role="critic", llm_provider=provider2)
+
+        graph = DebateGraph(agents=[agent1, agent2])
+        result = await graph.run(topic="Should we use microservices?")
+
+        # Verify both agents responded
+        assert len(result.responses) == 2
+        assert result.responses[0].agent_id == "agent-1"
+        assert result.responses[1].agent_id == "agent-2"
+
+        # Verify second agent's prompt included first agent's response
+        assert "scalability" in provider2.last_prompt.lower()
+        assert "agent-1" in provider2.last_prompt
+
+
 class TestAgentCommunication:
     """Test single agent communication."""
 
