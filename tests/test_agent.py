@@ -141,6 +141,61 @@ class TestConsensusMechanism:
         assert result.consensus_reached
         assert result.round_number < 5  # Should end early due to consensus
 
+    async def test_system_requests_revisions_when_agents_disagree(self) -> None:
+        """Test that system requests revisions when agents disagree."""
+        from debate_ai.debate_graph import DebateGraph
+        from debate_ai.llm_provider import MockLLMProvider
+
+        # Create agents that will disagree initially, then agree
+        provider1 = MockLLMProvider(response="Microservices are great")
+        provider2 = MockLLMProvider(response="I disagree - too complex")
+
+        agent1 = Agent(agent_id="agent-1", role="analyst", llm_provider=provider1)
+        agent2 = Agent(agent_id="agent-2", role="critic", llm_provider=provider2)
+
+        # Run debate with consensus checking
+        graph = DebateGraph(agents=[agent1, agent2])
+        result = await graph.run(
+            topic="Should we use microservices?",
+            max_rounds=3,
+            check_consensus=True,
+        )
+
+        # Should continue to next round when disagreement detected
+        # At least 2 rounds should occur (initial + revision after disagreement)
+        assert result.round_number >= 2
+
+        # Should have multiple responses showing revision attempts
+        assert len(result.responses) >= 4  # 2 agents × 2 rounds minimum
+
+    async def test_system_has_maximum_iteration_limit_to_prevent_infinite_loops(
+        self,
+    ) -> None:
+        """Test that system has maximum iteration limit to prevent infinite loops."""
+        from debate_ai.debate_graph import DebateGraph
+        from debate_ai.llm_provider import MockLLMProvider
+
+        # Create agents that always disagree (would loop forever without limit)
+        provider1 = MockLLMProvider(response="I strongly disagree with this")
+        provider2 = MockLLMProvider(response="I completely disagree as well")
+
+        agent1 = Agent(agent_id="agent-1", role="analyst", llm_provider=provider1)
+        agent2 = Agent(agent_id="agent-2", role="critic", llm_provider=provider2)
+
+        # Set a max_rounds limit
+        max_rounds = 3
+        graph = DebateGraph(agents=[agent1, agent2])
+        result = await graph.run(
+            topic="Should we use microservices?",
+            max_rounds=max_rounds,
+            check_consensus=True,
+        )
+
+        # Should stop at max_rounds even without consensus
+        assert result.round_number == max_rounds
+        assert not result.consensus_reached
+        assert len(result.responses) == max_rounds * 2  # 3 rounds × 2 agents
+
 
 class TestAgentCommunication:
     """Test single agent communication."""
