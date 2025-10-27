@@ -93,6 +93,55 @@ class TestMultiAgentSystem:
         assert result.round_number == 2
 
 
+class TestConsensusMechanism:
+    """Test consensus and voting mechanism."""
+
+    async def test_each_agent_can_vote_on_agreement(self) -> None:
+        """Test that each agent can vote on agreement (agree/disagree/needs_revision)."""
+        from debate_ai.agent import Agent, Vote
+        from debate_ai.llm_provider import MockLLMProvider
+
+        # Create agents
+        provider1 = MockLLMProvider(response="I agree with this proposal")
+        agent1 = Agent(agent_id="agent-1", role="analyst", llm_provider=provider1)
+
+        # Agent should be able to vote
+        vote = await agent1.vote(
+            topic="Should we use microservices?",
+            current_responses=["Response 1", "Response 2"],
+        )
+
+        assert vote is not None
+        assert isinstance(vote, Vote)
+        assert vote.agent_id == "agent-1"
+        assert vote.decision in ["agree", "disagree", "needs_revision"]
+        assert isinstance(vote.reasoning, str)
+
+    async def test_system_detects_when_all_agents_agree(self) -> None:
+        """Test that system detects when all agents agree."""
+        from debate_ai.debate_graph import DebateGraph
+        from debate_ai.llm_provider import MockLLMProvider
+
+        # Create agents that will agree
+        provider1 = MockLLMProvider(response="I agree - this is the best approach")
+        provider2 = MockLLMProvider(response="I agree - well reasoned")
+
+        agent1 = Agent(agent_id="agent-1", role="analyst", llm_provider=provider1)
+        agent2 = Agent(agent_id="agent-2", role="critic", llm_provider=provider2)
+
+        # Run debate with consensus checking enabled
+        graph = DebateGraph(agents=[agent1, agent2])
+        result = await graph.run(
+            topic="Should we use microservices?",
+            max_rounds=5,
+            check_consensus=True,
+        )
+
+        # Should reach consensus before max_rounds
+        assert result.consensus_reached
+        assert result.round_number < 5  # Should end early due to consensus
+
+
 class TestAgentCommunication:
     """Test single agent communication."""
 

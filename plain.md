@@ -18,8 +18,8 @@
 - [x] Test: Debate continues for configurable number of rounds
 
 ## Phase 4: Consensus Mechanism
-- [ ] Test: Each agent can vote on agreement (agree/disagree/needs_revision)
-- [ ] Test: System detects when all agents agree
+- [x] Test: Each agent can vote on agreement (agree/disagree/needs_revision)
+- [x] Test: System detects when all agents agree
 - [ ] Test: System requests revisions when agents disagree
 - [ ] Test: System has maximum iteration limit to prevent infinite loops
 

@@ -1,7 +1,7 @@
 """Agent implementation for debate system."""
 
 from datetime import datetime
-from typing import Optional
+from typing import List, Literal, Optional
 from pydantic import BaseModel
 from debate_ai.llm_provider import LLMProvider
 
@@ -12,6 +12,15 @@ class AgentResponse(BaseModel):
     agent_id: str
     role: str
     content: str
+    timestamp: datetime
+
+
+class Vote(BaseModel):
+    """Vote from an agent on the current debate state."""
+
+    agent_id: str
+    decision: Literal["agree", "disagree", "needs_revision"]
+    reasoning: str
     timestamp: datetime
 
 
@@ -61,5 +70,51 @@ class Agent:
             agent_id=self.agent_id,
             role=self.role,
             content=content,
+            timestamp=datetime.now(),
+        )
+
+    async def vote(self, topic: str, current_responses: List[str]) -> Vote:
+        """Vote on the current state of the debate.
+
+        Args:
+            topic: The debate topic
+            current_responses: List of current responses in the debate
+
+        Returns:
+            Vote with decision and reasoning
+        """
+        # Build voting prompt
+        responses_text = "\n".join(
+            [f"- {response}" for response in current_responses]
+        )
+        prompt = f"""Topic: {topic}
+
+Current responses:
+{responses_text}
+
+Based on the above responses, do you agree with the current consensus, disagree, or think it needs revision?
+Respond with one of: agree, disagree, needs_revision
+
+Also provide your reasoning."""
+
+        # Get LLM response
+        if self.llm_provider:
+            response = await self.llm_provider.generate(prompt)
+        else:
+            response = "agree - All points are valid"
+
+        # Parse response to extract decision
+        response_lower = response.lower()
+        if "agree" in response_lower and "disagree" not in response_lower:
+            decision = "agree"
+        elif "disagree" in response_lower:
+            decision = "disagree"
+        else:
+            decision = "needs_revision"
+
+        return Vote(
+            agent_id=self.agent_id,
+            decision=decision,
+            reasoning=response,
             timestamp=datetime.now(),
         )
