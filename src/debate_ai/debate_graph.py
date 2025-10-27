@@ -114,9 +114,40 @@ class DebateGraph:
             state: Current debate state
 
         Returns:
-            Updated state with incremented round number
+            Updated state with incremented round number and consensus status
         """
-        return {"round_number": state["round_number"] + 1}
+        updates = {"round_number": state["round_number"] + 1}
+
+        # Check for consensus if enabled
+        if hasattr(self, "_check_consensus") and self._check_consensus:
+            consensus = await self._check_for_consensus(state)
+            updates["consensus_reached"] = consensus
+
+        return updates
+
+    async def _check_for_consensus(self, state: DebateState) -> bool:
+        """Check if all agents agree on the current state.
+
+        Args:
+            state: Current debate state
+
+        Returns:
+            True if consensus is reached, False otherwise
+        """
+        # Need at least one round completed to check consensus
+        if state["round_number"] < 1 or not state["responses"]:
+            return False
+
+        # Get all agents to vote
+        votes = []
+        response_contents = [resp.content for resp in state["responses"]]
+
+        for agent in self.agents:
+            vote = await agent.vote(state["topic"], response_contents)
+            votes.append(vote)
+
+        # Check if all agents agree
+        return all(vote.decision == "agree" for vote in votes)
 
     def _should_continue(self, state: DebateState) -> str:
         """Decide whether to continue the debate or end.
@@ -140,19 +171,21 @@ class DebateGraph:
         return "end"
 
     async def run(
-        self, topic: str, max_rounds: int = 1
+        self, topic: str, max_rounds: int = 1, check_consensus: bool = False
     ) -> DebateResult:
         """Run the debate on a given topic.
 
         Args:
             topic: The topic to debate
             max_rounds: Maximum number of debate rounds
+            check_consensus: Whether to check for consensus after each round
 
         Returns:
             DebateResult containing all responses and metadata
         """
-        # Store max_rounds for use in _should_continue
+        # Store max_rounds and check_consensus for use in round controller
         self._max_rounds = max_rounds
+        self._check_consensus = check_consensus
 
         initial_state: DebateState = {
             "topic": topic,
